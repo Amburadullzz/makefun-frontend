@@ -1,4 +1,0 @@
-# Build output from main.ts (MAKEFUN_OUTPUT_DIR=out), never part of the entry.
-out/
-out2/
-node_modules/
