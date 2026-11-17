@@ -1,35 +1,45 @@
-// A working makefun-frontend-01 entry (Node 22, standard library only): the frontend is this directory's app/
-// folder, plain static files a browser opens at app/index.html (ES modules, CSS, no build step), reading make.fun's
-// public API at https://make.fun/api. The program hands it in: it copies app/ and screenshots/ from beside this file
-// to /output and writes /output/dossier.json, the summary the judge reads (your screenshots, the first load's files
-// and bytes, and your source), with the vendored make.fun library. Leave vendor/makefun-frontend.ts as it is: the
-// scorer requires dossier.json to be byte for byte what its own copy writes.
+// Hands this entry in. Node 22, standard library only, no install and no build:
+// it copies the frontend (app/) and the screenshots beside this file into the
+// output directory, then writes dossier.json with the kit's own library, so the
+// judge's outline and the scorer's rebuild describe exactly the same bytes.
 //
-// A starting point, not a winner: a plain board of open bounties and a page for each. Build your frontend in app/
-// (a leaderboard, profiles, speed, ease of use), put 3 PNG or JPEG screenshots of it running on live data in
-// screenshots/ (the first by name is the cover; shots.json says which views this starter's were taken of), and run it.
+// The frontend itself is plain static files: app/index.html plus ES modules and
+// one stylesheet, reading make.fun's public API from the browser. Nothing here
+// touches the network; this program only copies files and builds one document.
 //
-// Serve it locally with `node serve.ts`, then open http://localhost:8080.
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
+// Serve the app locally with `node serve.ts` (http://localhost:8080), and run
+// this hand-in against a folder you can look at:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+//
+// vendor/makefun-frontend.ts is the kit's copy of the dossier library and must
+// stay byte for byte as it is.
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-frontend.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const repo = fileURLToPath(new URL('.', import.meta.url));
+const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'app'), join(out, 'app'), { recursive: true });
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+mkdirSync(outDir, { recursive: true });
 
-// The scorer's own caps (reference/gate.json): only text_max_bytes shapes the bytes; the others refuse an entry the
-// scorer would refuse (more than 3 screenshots or one over 256 KiB; more than 993 files and directories in app/ or
-// 16 MiB of app files: app/ counts beside /output's own 1000-entry cap, its screenshots/ and dossier.json).
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, { text_max_bytes: 163840, screenshots: { max: 3, max_bytes: 262144 }, app_max_files: 993, app_max_bytes: 16777216 }),
-);
+// The app first: the files a browser loads, unchanged.
+cpSync(join(repo, 'app'), join(outDir, 'app'), { recursive: true });
+
+// Then the three screenshots the judge sees before any text, the cover first by name.
+const shots = join(repo, 'screenshots');
+mkdirSync(join(outDir, 'screenshots'), { recursive: true });
+if (existsSync(shots)) cpSync(shots, join(outDir, 'screenshots'), { recursive: true });
+
+// The same limits the scorer applies: a text cap of 160 KiB, three screenshots of
+// at most 256 KiB each, and the app caps that would otherwise let an entry through
+// that the gate then refuses (993 files and directories, 16 MiB in all).
+const dossier = buildDossier(outDir, {
+  text_max_bytes: 163840,
+  screenshots: { max: 3, max_bytes: 262144 },
+  app_max_files: 993,
+  app_max_bytes: 16777216,
+});
+
+writeFileSync(join(outDir, 'dossier.json'), dossier);
